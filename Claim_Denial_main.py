@@ -94,34 +94,52 @@ def claim_denial():
 
     col3, col4 = st.columns(2)
     with col3:
+        # Chart 3: Denial Risk Trend — month-by-month zigzag line (no fill)
         trend = filtered.groupby("Month_Str")["Denial_Probability"].mean().reset_index()
+        trend.columns = ["Year_Month", "Denial_Probability"]
         fig3 = go.Figure()
-        fig3.add_trace(go.Scatter(x=trend["Month_Str"], y=trend["Denial_Probability"],
-                                  mode="lines+markers", line=dict(color="#FF5E5E", width=2.2),
-                                  marker=dict(size=5), fill="tozeroy",
-                                  fillcolor="rgba(255,94,94,0.07)"))
+        fig3.add_trace(go.Scatter(
+            x=trend["Year_Month"],
+            y=trend["Denial_Probability"],
+            mode="lines+markers",
+            line=dict(color="#A78BFA", width=2.2),
+            marker=dict(size=6, color="#A78BFA"),
+            name="Avg Denial Probability"
+        ))
         chart_title("Denial Risk Trend Over Time")
         fig3.update_layout(**chart_cfg(
-            xlabel="Month", ylabel="Avg Denial Probability"))
+            xlabel="Year_Month", ylabel="Denial_Probability"))
         st.plotly_chart(fig3, use_container_width=True)
 
     with col4:
-        fi_s = fi.reindex(fi["Coefficient"].abs().sort_values().index).copy()
-        fi_s["Color"] = fi_s["Coefficient"].apply(lambda x: "#FF5E5E" if x > 0 else "#00FF87")
-        fig4 = go.Figure(go.Bar(x=fi_s["Coefficient"], y=fi_s["Feature"],
-                                orientation="h",
-                                marker=dict(color=fi_s["Color"], opacity=0.9)))
-        fig4.add_vline(x=0, line_color="rgba(255,255,255,0.15)", line_width=1)
-        chart_title("Feature Importance (Denial Drivers)")
-        fig4.update_layout(**chart_cfg(
-            xlabel="Coefficient", ylabel="Feature"))
+        # Chart 4: Claim Risk Level Distribution — donut chart
+        risk_counts = filtered["Risk_Level"].value_counts().reset_index()
+        risk_counts.columns = ["Risk_Level", "Count"]
+        fig4 = px.pie(
+            risk_counts,
+            values="Count",
+            names="Risk_Level",
+            hole=0.50,
+            color="Risk_Level",
+            color_discrete_map={
+                "High":   "#FF5E5E",
+                "Medium": "#A78BFA",
+                "Low":    "#00FF87"
+            }
+        )
+        fig4.update_traces(
+            textinfo="percent",
+            textfont_size=13,
+            marker=dict(line=dict(color="rgba(0,0,0,0.15)", width=1.5))
+        )
+        chart_title("Claim Risk Level Distribution")
+        fig4.update_layout(**chart_cfg())
         st.plotly_chart(fig4, use_container_width=True)
 
-    top_driver = fi.reindex(fi["Coefficient"].abs().sort_values(ascending=False).index).iloc[0]["Feature"]
     insight(
         f"<strong>{high_pct:.1f}%</strong> of claims are High Risk. "
         f"Top risk dept: <strong>{top_risk_dept}</strong>. "
-        f"Government denial rate: <strong>26.7%</strong> — key driver: <strong>{top_driver}</strong>. "
+        f"Government denial rate: <strong>26.7%</strong>. "
         f"Revenue at risk: <strong>{fmt(pot_loss)}</strong>.",
         kind="red" if high_pct > 25 else "" if high_pct > 15 else "green")
 
